@@ -1,4 +1,4 @@
-import json, os, re, requests
+import json, os, re, time, requests
 from datetime import datetime, timezone
 
 TOKEN = os.environ["TELEGRAM_TOKEN"]
@@ -24,7 +24,7 @@ def save(s):
 
 def tg(method, **params):
     try:
-        return requests.post(f"{API}/{method}", json=params, timeout=30).json()
+        return requests.post(f"{API}/{method}", json=params, timeout=40).json()
     except Exception as e:
         print("tg error", e)
         return {}
@@ -162,8 +162,8 @@ def show_favs(state, chat):
     say(chat, "⭐ Твоё избранное:", buttons)
 
 
-def handle_updates(state):
-    res = tg("getUpdates", offset=state["offset"], timeout=0).get("result", [])
+def handle_updates(state, wait=0):
+    res = tg("getUpdates", offset=state["offset"], timeout=wait).get("result", [])
     for u in res:
         state["offset"] = u["update_id"] + 1
         try:
@@ -214,6 +214,13 @@ def check_releases(state):
 
 if __name__ == "__main__":
     state = load()
-    handle_updates(state)
-    check_releases(state)
-    save(state)
+    start = time.time()
+    last_check = 0
+    while time.time() - start < 280:
+        cache.clear()
+        handle_updates(state, wait=25)
+        if time.time() - last_check > 120:
+            check_releases(state)
+            last_check = time.time()
+        save(state)
+        
